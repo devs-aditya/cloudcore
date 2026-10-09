@@ -68,11 +68,6 @@ export async function POST(request: Request) {
             [storedOtp.id]
         );
 
-        // OTP is valid, so delete it
-await pool.query(
-    "DELETE FROM otp_codes WHERE id = $1",
-    [storedOtp.id]
-);
 
 // Create a session for the user
 const sessionResult = await pool.query(
@@ -97,7 +92,6 @@ cookieStore.set("session_id", sessionId, {
 return Response.json({
     message: "OTP verified successfully",
     userId,
-    sessionId,
 });
 
     } catch (error) {
