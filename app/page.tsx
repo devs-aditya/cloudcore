@@ -1,55 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FileCard from "@/components/FileCard";
 
 type File = {
+    id: number;
     name: string;
     type: string;
     size: string;
+    storage_key: string;
+    created_at: string;
 };
 
-const initialFiles = [
-    {
-        name: "Resume.pdf",
-        type: "PDF",
-        size: "2.4 MB"
-    },
-    {
-        name: "Photo.jpg",
-        type: "JPG",
-        size: "5.1 MB"
-    },
-    {  
-        name: "Project.zip",
-        type: "ZIP",
-        size: "18 MB"
+function formatFileSize(bytes: string) {
+    const size = Number(bytes);
+
+    if (size < 1024) {
+        return `${size} B`;
     }
-];
+
+    if (size < 1024 * 1024) {
+        return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    if (size < 1024 * 1024 * 1024) {
+        return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatFileType(type: string) {
+    if (type === "application/pdf") {
+        return "PDF";
+    }
+
+    if (type.startsWith("image/")) {
+        return type.split("/")[1].toUpperCase();
+    }
+
+    if (type === "application/zip") {
+        return "ZIP";
+    }
+
+    return type;
+}
 
 export default function Home() {
-
-    const [files, setFiles] = useState<File[]>(initialFiles);
+    const [files, setFiles] = useState<File[]>([]);
     const [search, setSearch] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    useEffect(() => {
+        async function fetchFiles() {
+            try {
+                const response = await fetch("/api/files", {
+                    credentials: "include",
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    setError(data.error || "Failed to load files");
+                    return;
+                }
+
+                setFiles(data.files);
+            } catch (error) {
+                console.error(error);
+                setError("Unable to connect to the server");
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchFiles();
+    }, []);
 
     const filteredFiles = files.filter((file) =>
         file.name.toLowerCase().includes(search.toLowerCase())
     );
-
-    function addFile() {
-        setFiles([
-            ...files,
-            {
-                name: "NewFile.pdf",
-                type: "PDF",
-                size: "1 MB"
-            }
-        ]);
-    }
-
-    function removeLastFile() {
-        setFiles(files.slice(0, -1));
-    }
 
     function deleteFile(fileName: string) {
         setFiles(
@@ -67,23 +98,19 @@ export default function Home() {
                 onChange={(event) => setSearch(event.target.value)}
             />
 
-            <button onClick={addFile}>
-                Add File
-            </button>
-
-            <button onClick={removeLastFile}>
-                Remove Last File
-            </button>
-
-            {filteredFiles.length === 0 ? (
+            {loading ? (
+                <p>Loading files...</p>
+            ) : error ? (
+                <p>{error}</p>
+            ) : filteredFiles.length === 0 ? (
                 <p>No files found.</p>
             ) : (
                 filteredFiles.map((file) => (
                     <FileCard
-                        key={file.name}
+                        key={file.id}
                         name={file.name}
-                        type={file.type}
-                        size={file.size}
+                        type={formatFileType(file.type)}
+                        size={formatFileSize(file.size)}
                         onDelete={() => deleteFile(file.name)}
                     />
                 ))
