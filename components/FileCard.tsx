@@ -8,8 +8,10 @@ interface FileCardProps {
     name: string;
     type: string;
     size: string;
+    starred: boolean;
     onDelete: () => void;
     onRename: (id: number, newName: string) => Promise<void>;
+    onToggleStar: (id: number, starred: boolean) => Promise<void>;
 }
 
 export default function FileCard({
@@ -17,12 +19,15 @@ export default function FileCard({
     name,
     type,
     size,
+    starred,
     onDelete,
     onRename,
+    onToggleStar,
 }: FileCardProps) {
     const [isRenaming, setIsRenaming] = useState(false);
     const [newName, setNewName] = useState(name);
     const [isSaving, setIsSaving] = useState(false);
+    const [isTogglingStar, setIsTogglingStar] = useState(false);
     const [error, setError] = useState("");
 
     function handleDownload() {
@@ -53,7 +58,6 @@ export default function FileCard({
             setError("");
 
             await onRename(id, trimmedName);
-
             setIsRenaming(false);
         } catch (err) {
             setError(
@@ -66,6 +70,23 @@ export default function FileCard({
         }
     }
 
+    async function handleToggleStar() {
+        try {
+            setIsTogglingStar(true);
+            setError("");
+
+            await onToggleStar(id, !starred);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Failed to update starred status."
+            );
+        } finally {
+            setIsTogglingStar(false);
+        }
+    }
+
     return (
         <div>
             {isRenaming ? (
@@ -73,7 +94,9 @@ export default function FileCard({
                     <input
                         type="text"
                         value={newName}
-                        onChange={(event) => setNewName(event.target.value)}
+                        onChange={(event) =>
+                            setNewName(event.target.value)
+                        }
                         maxLength={255}
                         aria-label="New filename"
                         disabled={isSaving}
@@ -107,8 +130,6 @@ export default function FileCard({
                     >
                         Cancel
                     </button>
-
-                    {error && <p role="alert">{error}</p>}
                 </div>
             ) : (
                 <>
@@ -118,16 +139,31 @@ export default function FileCard({
                         {type} • {size}
                     </p>
 
-                    <button onClick={() => {//jaise hi rename button pe click hoga, isRenaming ko true ho jaayega
-                    //input waala code jo starting mein tha woh initiate ho jaayega
-                        setNewName(name);
-                        setIsRenaming(true); 
-                        setError("");
-                    }}>
+                    <button
+                        onClick={() => {
+                            setNewName(name);
+                            setIsRenaming(true);
+                            setError("");
+                        }}
+                    >
                         Rename
                     </button>
                 </>
             )}
+
+            <button
+                type="button"
+                onClick={() => void handleToggleStar()}
+                disabled={isTogglingStar}
+                aria-label={starred ? "Unstar file" : "Star file"}
+                aria-pressed={starred}
+            >
+                {isTogglingStar
+                    ? "Updating..."
+                    : starred
+                      ? "★ Starred"
+                      : "☆ Star"}
+            </button>
 
             <button onClick={handleDownload}>
                 Download
@@ -136,6 +172,8 @@ export default function FileCard({
             <button onClick={onDelete}>
                 Delete
             </button>
+
+            {error && <p role="alert">{error}</p>}
         </div>
     );
 }

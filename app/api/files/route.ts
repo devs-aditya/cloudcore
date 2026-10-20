@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import pool from "@/lib/db";
@@ -35,7 +36,7 @@ export async function GET() {
 
     const filesResult = await pool.query(
       `
-      SELECT id, name, size, type, storage_key, created_at
+      SELECT id, name, size, type, storage_key, created_at, starred
       FROM files
       WHERE user_id = $1
       ORDER BY created_at DESC

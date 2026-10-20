@@ -10,6 +10,7 @@ type CloudFile = {
     size: string | number;
     storage_key: string;
     created_at: string;
+    starred: boolean;
 };
 
 type FileCategory =
@@ -165,31 +166,36 @@ export default function Home() {
     }
 
     const filteredFiles = files
-    .filter((file) =>
-        file.name.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => {
-        switch (sortBy) {
-            case "name":
-                return a.name.localeCompare(b.name);
+        .filter((file) =>
+            file.name.toLowerCase().includes(search.toLowerCase())
+        )
+        .filter((file) =>
+            category === "All Files"
+                ? true
+                : getFileCategory(file.type) === category
+        )
+        .sort((a, b) => {
+            switch (sortBy) {
+                case "name":
+                    return a.name.localeCompare(b.name);
 
-            case "oldest":
-                return (
-                    new Date(a.created_at).getTime() -
-                    new Date(b.created_at).getTime()
-                );
+                case "oldest":
+                    return (
+                        new Date(a.created_at).getTime() -
+                        new Date(b.created_at).getTime()
+                    );
 
-            case "size":
-                return Number(b.size) - Number(a.size);
+                case "size":
+                    return Number(b.size) - Number(a.size);
 
-            case "newest":
-            default:
-                return (
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime()
-                );
-        }
-    });
+                case "newest":
+                default:
+                    return (
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime()
+                    );
+            }
+        });
 
     async function deleteFile(fileId: number) {
         const confirmed = window.confirm(
@@ -222,34 +228,71 @@ export default function Home() {
         }
     }
 
+    async function renameFile(
+        fileId: number,
+        newName: string
+    ): Promise<void> {
+        const response = await fetch(`/api/files/${fileId}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: newName }),
+        });
 
-async function renameFile(fileId: number, newName: string): Promise<void> {
-    const response = await fetch(`/api/files/${fileId}`, {
-        method: "PATCH",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: newName }),
-    });
+        const data = await response.json();
 
-    const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || "Failed to rename file");
+        }
 
-    if (!response.ok) {
-        throw new Error(data.error || "Failed to rename file");
+        setFiles((currentFiles) =>
+            currentFiles.map((file) =>
+                file.id === fileId
+                    ? { ...file, name: data.file.name }
+                    : file
+            )
+        );
+
+        setError("");
+        setUploadMessage("File renamed successfully!");
     }
 
-    setFiles((currentFiles) =>
-        currentFiles.map((file) =>
-            file.id === fileId
-                ? { ...file, name: data.file.name }
-                : file
-        )
-    );
+    async function toggleStar(
+        fileId: number,
+        starred: boolean
+    ): Promise<void> {
+        const response = await fetch(`/api/files/${fileId}/star`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ starred }),
+        });
 
-    setError("");
-    setUploadMessage("File renamed successfully!");
-}
-    
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Failed to update starred status"
+            );
+        }
+
+        setFiles((currentFiles) =>
+            currentFiles.map((file) =>
+                file.id === fileId
+                    ? { ...file, starred: data.file.starred }
+                    : file
+            )
+        );
+
+        setError("");
+        setUploadMessage(
+            starred
+                ? "File starred successfully!"
+                : "File unstarred successfully!"
+        );
+    }
 
     return (
         <main className="space-y-6 p-6">
@@ -284,22 +327,20 @@ async function renameFile(fileId: number, newName: string): Promise<void> {
                 type="search"
                 placeholder="Search files..."
                 value={search}
-                onChange={(event) =>
-                    setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
                 className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-2"
             />
 
-             <select
+            <select
                 value={sortBy}
                 onChange={(event) => setSortBy(event.target.value)}
-    >
+                className="rounded-lg border border-gray-300 px-3 py-2"
+            >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
-                 <option value="name">Name (A–Z)</option>
+                <option value="name">Name (A–Z)</option>
                 <option value="size">Largest first</option>
             </select>
-
 
             <section
                 aria-label="File categories"
@@ -337,9 +378,7 @@ async function renameFile(fileId: number, newName: string): Promise<void> {
                     {!loading && !error && (
                         <span className="text-sm text-gray-500">
                             {filteredFiles.length}{" "}
-                            {filteredFiles.length === 1
-                                ? "file"
-                                : "files"}
+                            {filteredFiles.length === 1 ? "file" : "files"}
                         </span>
                     )}
                 </div>
@@ -365,9 +404,9 @@ async function renameFile(fileId: number, newName: string): Promise<void> {
                                 name={file.name}
                                 type={formatFileType(file.type)}
                                 size={formatFileSize(file.size)}
-                                onDelete={() =>
-                                    deleteFile(file.id)
-                                }
+                                starred={file.starred}
+                                onToggleStar={toggleStar}
+                                onDelete={() => deleteFile(file.id)}
                                 onRename={renameFile}
                             />
                         ))}
