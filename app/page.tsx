@@ -94,6 +94,7 @@ function getFileCategory(type: string): FileCategory {
 export default function Home() {
     const [files, setFiles] = useState<CloudFile[]>([]);
     const [search, setSearch] = useState("");
+    const [sortBy, setSortBy] = useState("newest");
     const [category, setCategory] =
         useState<FileCategory>("All Files");
     const [loading, setLoading] = useState(true);
@@ -163,16 +164,31 @@ export default function Home() {
         }
     }
 
-    const filteredFiles = files.filter((file) => {
-        const matchesSearch = file.name
-            .toLowerCase()
-            .includes(search.toLowerCase());
+    const filteredFiles = files
+    .filter((file) =>
+        file.name.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+        switch (sortBy) {
+            case "name":
+                return a.name.localeCompare(b.name);
 
-        const matchesCategory =
-            category === "All Files" ||
-            getFileCategory(file.type) === category;
+            case "oldest":
+                return (
+                    new Date(a.created_at).getTime() -
+                    new Date(b.created_at).getTime()
+                );
 
-        return matchesSearch && matchesCategory;
+            case "size":
+                return Number(b.size) - Number(a.size);
+
+            case "newest":
+            default:
+                return (
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                );
+        }
     });
 
     async function deleteFile(fileId: number) {
@@ -244,6 +260,17 @@ export default function Home() {
                 }
                 className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-2"
             />
+
+             <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+    >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                 <option value="name">Name (A–Z)</option>
+                <option value="size">Largest first</option>
+            </select>
+
 
             <section
                 aria-label="File categories"
