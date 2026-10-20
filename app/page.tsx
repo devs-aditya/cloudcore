@@ -222,6 +222,35 @@ export default function Home() {
         }
     }
 
+
+async function renameFile(fileId: number, newName: string): Promise<void> {
+    const response = await fetch(`/api/files/${fileId}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: newName }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || "Failed to rename file");
+    }
+
+    setFiles((currentFiles) =>
+        currentFiles.map((file) =>
+            file.id === fileId
+                ? { ...file, name: data.file.name }
+                : file
+        )
+    );
+
+    setError("");
+    setUploadMessage("File renamed successfully!");
+}
+    
+
     return (
         <main className="space-y-6 p-6">
             <h1 className="text-3xl font-bold">
@@ -339,6 +368,7 @@ export default function Home() {
                                 onDelete={() =>
                                     deleteFile(file.id)
                                 }
+                                onRename={renameFile}
                             />
                         ))}
                     </div>
