@@ -165,6 +165,15 @@ export default function Home() {
         }
     }
 
+
+const totalStorageUsed = files.reduce((total, file) => {
+    const size = Number(file.size);
+    return total + (Number.isFinite(size) && size >= 0 ? size : 0);
+}, 0);
+
+const totalFiles = files.length;
+
+
     const filteredFiles = files
         .filter((file) =>
             file.name.toLowerCase().includes(search.toLowerCase())
@@ -204,6 +213,9 @@ export default function Home() {
 
         if (!confirmed) return;
 
+        setUploadMessage("");
+        setError("");
+
         try {
             const response = await fetch(`/api/files/${fileId}`, {
                 method: "DELETE",
@@ -232,6 +244,10 @@ export default function Home() {
         fileId: number,
         newName: string
     ): Promise<void> {
+
+                setUploadMessage("");
+        setError("");
+        
         const response = await fetch(`/api/files/${fileId}`, {
             method: "PATCH",
             headers: {
@@ -239,6 +255,8 @@ export default function Home() {
             },
             body: JSON.stringify({ name: newName }),
         });
+
+
 
         const data = await response.json();
 
@@ -262,6 +280,10 @@ export default function Home() {
         fileId: number,
         starred: boolean
     ): Promise<void> {
+
+        setUploadMessage("");
+        setError("");
+
         const response = await fetch(`/api/files/${fileId}/star`, {
             method: "PATCH",
             headers: {
@@ -299,6 +321,28 @@ export default function Home() {
             <h1 className="text-3xl font-bold">
                 CloudCore
             </h1>
+
+
+<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="rounded-xl border border-gray-200 p-5 shadow-sm">
+        <p className="text-sm text-gray-500">
+            Total Storage Used
+        </p>
+        <p className="mt-2 text-2xl font-bold">
+            {formatFileSize(totalStorageUsed)}
+        </p>
+    </div>
+
+    <div className="rounded-xl border border-gray-200 p-5 shadow-sm">
+        <p className="text-sm text-gray-500">
+            Total Files
+        </p>
+        <p className="mt-2 text-2xl font-bold">
+            {totalFiles}
+        </p>
+    </div>
+</div>
+
 
             <div className="space-y-2">
                 <label
