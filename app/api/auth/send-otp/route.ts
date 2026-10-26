@@ -1,15 +1,29 @@
 import pool from "@/lib/db";
+import { randomInt } from "node:crypto";
 
 export async function POST(request: Request){
     try {
-        const { email } = await request.json();
+        const body = await request.json();
+        const email =
+        typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
 
-        if (!email) {
-            return Response.json(
-                { error: "Email is required" },
-                { status: 400 }
-            );
-        }
+if (!email) {
+    return Response.json(
+        { error: "Email is required" },
+        { status: 400 }
+    );
+}
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; //emailRegex is a variable that stores a regular expression — a pattern used to check whether a string matches a particular format.
+
+if (!emailRegex.test(email)) {
+    return Response.json(
+        { error: "Invalid email address" },
+        { status: 400 }
+    );
+}
 
         // Check if user already exists
         const userResult = await pool.query(
@@ -32,7 +46,7 @@ export async function POST(request: Request){
         }
 
         // Generate a 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = randomInt(100000, 1000000).toString();
 
         // OTP expires in 5 minutes
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
