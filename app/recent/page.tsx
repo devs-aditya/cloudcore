@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,45 +11,34 @@ type CloudFile = {
     size: string | number;
     storage_key: string;
     created_at: string;
+    starred: boolean;
 };
 
 function formatFileSize(bytes: string | number) {
     const size = Number(bytes);
 
-    if (!Number.isFinite(size) || size < 0) {
-        return "Unknown size";
-    }
-
+    if (!Number.isFinite(size) || size < 0) return "Unknown size";
     if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) {
-        return `${(size / 1024).toFixed(1)} KB`;
-    }
-    if (size < 1024 * 1024 * 1024) {
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    if (size < 1024 * 1024 * 1024)
         return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-    }
 
     return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 function formatFileType(type: string) {
     if (type === "application/pdf") return "PDF";
-    if (type.startsWith("image/")) {
-        return type.split("/")[1].toUpperCase();
-    }
+    if (type.startsWith("image/")) return type.split("/")[1].toUpperCase();
     if (type === "application/zip") return "ZIP";
     if (type === "text/plain") return "TXT";
-
     return type || "Unknown";
 }
 
 function formatDate(date: string) {
     const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-        return "Unknown date";
-    }
-
-    return parsedDate.toLocaleString();
+    return Number.isNaN(parsedDate.getTime())
+        ? "Unknown date"
+        : parsedDate.toLocaleString();
 }
 
 export default function RecentPage() {
@@ -71,7 +61,6 @@ export default function RecentPage() {
                     ? data.files
                     : [];
 
-                // Newest files appear first.
                 recentFiles.sort(
                     (a, b) =>
                         new Date(b.created_at).getTime() -
@@ -79,8 +68,8 @@ export default function RecentPage() {
                 );
 
                 setFiles(recentFiles);
-            } catch (error) {
-                console.error(error);
+            } catch (err) {
+                console.error(err);
                 setError("Unable to connect to the server");
             } finally {
                 setLoading(false);
@@ -97,27 +86,59 @@ export default function RecentPage() {
 
         if (!confirmed) return;
 
-        try {
-            const response = await fetch(`/api/files/${fileId}`, {
-                method: "DELETE",
-            });
+        const response = await fetch(`/api/files/${fileId}`, {
+            method: "DELETE",
+        });
+        const data = await response.json();
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || "Failed to delete file");
-                return;
-            }
-
-            setFiles((currentFiles) =>
-                currentFiles.filter((file) => file.id !== fileId)
-            );
-
-            setError("");
-        } catch (error) {
-            console.error(error);
-            setError("Unable to delete the file");
+        if (!response.ok) {
+            throw new Error(data.error || "Failed to delete file");
         }
+
+        setFiles((current) => current.filter((file) => file.id !== fileId));
+        setError("");
+    }
+
+    async function renameFile(fileId: number, newName: string) {
+        const response = await fetch(`/api/files/${fileId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: newName }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Failed to rename file");
+        }
+
+        setFiles((current) =>
+            current.map((file) =>
+                file.id === fileId
+                    ? { ...file, name: data.file?.name ?? newName }
+                    : file
+            )
+        );
+        setError("");
+    }
+
+    async function toggleStar(fileId: number, starred: boolean) {
+        const response = await fetch(`/api/files/${fileId}/star`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ starred }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Failed to update starred status");
+        }
+
+        setFiles((current) =>
+            current.map((file) =>
+                file.id === fileId ? { ...file, starred } : file
+            )
+        );
+        setError("");
     }
 
     return (
@@ -132,16 +153,13 @@ export default function RecentPage() {
             {loading ? (
                 <p>Loading recent files...</p>
             ) : error ? (
-                <p role="alert" className="text-red-600">
-                    {error}
-                </p>
+                <p role="alert" className="text-red-600">{error}</p>
             ) : files.length === 0 ? (
                 <p>You haven't uploaded any files yet.</p>
             ) : (
                 <>
                     <p className="text-sm text-gray-500">
-                        {files.length}{" "}
-                        {files.length === 1 ? "file" : "files"}
+                        {files.length} {files.length === 1 ? "file" : "files"}
                     </p>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -152,7 +170,10 @@ export default function RecentPage() {
                                     name={file.name}
                                     type={formatFileType(file.type)}
                                     size={formatFileSize(file.size)}
+                                    starred={file.starred ?? false}
                                     onDelete={() => deleteFile(file.id)}
+                                    onRename={renameFile}
+                                    onToggleStar={toggleStar}
                                 />
 
                                 <p className="text-xs text-gray-500">
